@@ -45,7 +45,7 @@ static ngx_str_t  ngx_http_paan_auth_data_prefix =
 static ngx_str_t  ngx_http_paan_auth_data_comma =
     ngx_string(", ");
 static ngx_str_t  ngx_http_paan_auth_sign_name =
-    ngx_string("x-akamai-acs—auth-sign");
+    ngx_string("x-akamai-acs-auth-sign");
 
 
 static ngx_command_t  ngx_http_proxy_auth_akamai_netstorage_commands[] = {
