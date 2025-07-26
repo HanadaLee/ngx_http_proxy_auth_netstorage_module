@@ -258,7 +258,7 @@ ngx_http_proxy_auth_akamai_netstorage_handler(ngx_http_request_t *r)
     p = ngx_sprintf(p, "\nx-akamai-acs-action:%V\n", &ngx_http_paan_action_value);
 
     /* HMAC */
-    HMAC(EVP_sha256(), alcf->key.data, alcf->key.len, buf, p - buf, md, &md_len);
+    HMAC(EVP_sha256(), conf->key.data, conf->key.len, buf, p - buf, md, &md_len);
 
     sign_hmac_bin.len = md_len;
     sign_hmac_bin.data = ngx_palloc(r->pool, sign_hmac_bin.len);
