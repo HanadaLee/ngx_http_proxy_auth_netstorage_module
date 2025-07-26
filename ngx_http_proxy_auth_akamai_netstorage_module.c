@@ -269,7 +269,7 @@ ngx_http_proxy_auth_akamai_netstorage_handler(ngx_http_request_t *r)
 
     /* X-Akamai-Acs-Auth-Sign */
     sign_value.len = ngx_base64_encoded_length(sign_hmac_bin.len);
-    sign_value.data = ngx_palloc(r->pool, sizeof(sign_value.len));
+    sign_value.data = ngx_palloc(r->pool, sign_value.len);
     if (sign_value.data == NULL) {
         return NGX_ERROR;
     }
