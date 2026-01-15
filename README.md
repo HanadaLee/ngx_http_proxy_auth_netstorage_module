@@ -17,6 +17,10 @@
     - [`proxy_auth_akamai_netstorage_key`](#proxy_auth_akamai_netstorage_key)
     - [`proxy_auth_akamai_netstorage_uri`](#proxy_auth_akamai_netstorage_uri)
     - [`proxy_auth_akamai_netstorage_bypass`](#proxy_auth_akamai_netstorage_bypass)
+- [Variables](#variables)
+    - [`$proxy_auth_akamai_netstorage_action`](#proxy_auth_akamai_netstorage_action)
+    - [`$proxy_auth_akamai_netstorage_data`](#proxy_auth_akamai_netstorage_data)
+    - [`$proxy_auth_akamai_netstorage_sign`](#proxy_auth_akamai_netstorage_sign)
 - [Known Limitations](#known-limitations)
 - [Author](#author)
 - [License](#license)
@@ -38,7 +42,7 @@ http {
         # Enable module and configure Akamai credentials
         proxy_auth_akamai_netstorage on;
         # Optional: Bypass authentication via condition
-        proxy_auth_akamai_netstorage_bypass $arg_nosign $http_nosign;
+        proxy_auth_akamai_netstorage_bypass $http_x_akamai_acs_action $arg_nosign $http_nosign;
 
         proxy_auth_akamai_netstorage_account "UploadAccountMedia";
         proxy_auth_akamai_netstorage_key "AbCd3fgoURanooXsbZ6deuZwIBRui4HvO57gf6Hr1CZGu";
@@ -49,6 +53,11 @@ http {
         location / {
             # Optional: Bypass authentication via condition
             proxy_auth_akamai_netstorage_bypass $arg_nosign;
+
+            # Add proxy authentication
+            proxy_set_header X-Akamai-ACS-Action $proxy_auth_akamai_netstorage_action;
+            proxy_set_header X-Akamai-ACS-Auth-Data $proxy_auth_akamai_netstorage_data;
+            proxy_set_header X-Akamai-ACS-Auth-Sign $proxy_auth_akamai_netstorage_sign;
 
             proxy_set_header Host baseball-nsu.akamaihd.net;
             proxy_pass https://akamai_netstorage$upstream_uri;
@@ -70,11 +79,15 @@ To use this module, configure your Nginx branch with `--add-module=/path/to/ngx_
 
 **Context:** `http`, `server`, `location`
 
-Enables or disables Akamai NetStorage authentication. When enabled, generates these request headers for proxy requests:
+Enables or disables Akamai NetStorage authentication. When enabled, generates these request headers value to variables:
 
-- `X-Akamai-ACS-Action: version=1&action=download`
-- `X-Akamai-ACS-Auth-Data: <generated_auth_data>`
-- `X-Akamai-ACS-Auth-Sign: <generated_signature>`
+- `X-Akamai-ACS-Action: version=1&action=download` -> $proxy_auth_akamai_netstorage_action
+- `X-Akamai-ACS-Auth-Data: <generated_auth_data>` -> $proxy_auth_akamai_netstorage_data
+- `X-Akamai-ACS-Auth-Sign: <generated_signature>` -> $proxy_auth_akamai_netstorage_sign
+
+Note that it will not overwrite existing request headers. You can use `proxy_set_header` to overwrite them.
+
+
 
 ### `proxy_auth_akamai_netstorage_account`
 
@@ -119,6 +132,26 @@ Example:
 ```nginx
 proxy_auth_akamai_netstorage_bypass $arg_noauth $http_noauth;  # Skip when $arg_noauth or $http_noauth not empty
 ```
+
+# Variables
+
+### `$proxy_auth_akamai_netstorage_action`
+
+Returns the generated action value (`version=1&action=download`) when the proxy authentication handler has executed successfully, otherwise returns the original `X-Akamai-ACS-Action` request header value if present.
+
+Use with: `proxy_set_header X-Akamai-ACS-Action $proxy_auth_akamai_netstorage_action;`
+
+### `$proxy_auth_akamai_netstorage_data`
+
+Returns the generated authentication data when the proxy authentication handler has executed successfully, otherwise returns the original `X-Akamai-ACS-Auth-Data` request header value if present.
+
+Use with: `proxy_set_header X-Akamai-ACS-Auth-Data $proxy_auth_akamai_netstorage_data;`
+
+### `$proxy_auth_akamai_netstorage_sign`
+
+Returns the generated signature when the proxy authentication handler has executed successfully, otherwise returns the original `X-Akamai-ACS-Auth-Sign` request header value if present.
+
+Use with: `proxy_set_header X-Akamai-ACS-Auth-Sign $proxy_auth_akamai_netstorage_sign;`
 
 # Known Limitations
 1. Requires OpenSSL 1.1.1+ (for HMAC-SHA256)
