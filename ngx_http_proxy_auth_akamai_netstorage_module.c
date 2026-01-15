@@ -458,17 +458,14 @@ ngx_http_proxy_auth_akamai_netstorage_init(ngx_conf_t *cf)
 
     ngx_http_paan_action_name_hash =
         ngx_hash_key(ngx_http_paan_action_name.data,
-                     ngx_http_paan_action_name.data,
                      ngx_http_paan_action_name.len);
 
     ngx_http_paan_data_name_hash =
         ngx_hash_key(ngx_http_paan_data_name.data,
-                     ngx_http_paan_data_name.data,
                      ngx_http_paan_data_name.len);
 
     ngx_http_paan_sign_name_hash =
         ngx_hash_key(ngx_http_paan_sign_name.data,
-                     ngx_http_paan_sign_name.data,
                      ngx_http_paan_sign_name.len);
 
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
