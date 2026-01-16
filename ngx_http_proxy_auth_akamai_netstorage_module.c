@@ -317,7 +317,11 @@ ngx_http_proxy_auth_akamai_netstorage_handler(ngx_http_request_t *r)
     default: /* NGX_OK */
         break;
     }
-    
+
+    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD|NGX_HTTP_OPTIONS))) {
+        return NGX_DECLINED;
+    }
+
     if (conf->account.len == 0 || conf->key.len == 0 || conf->uri == NULL) {
         ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                       "proxy_auth_akamai_netstorage: "
