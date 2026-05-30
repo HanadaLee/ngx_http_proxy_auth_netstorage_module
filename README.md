@@ -54,7 +54,8 @@ http {
             # Optional: Bypass authentication via condition
             proxy_auth_netstorage_bypass $arg_nosign;
 
-            # Add proxy authentication
+            # Without NGX_HTTP_PROXY_FILTER, set the generated headers explicitly.
+            # With NGX_HTTP_PROXY_FILTER, these three headers are set directly.
             proxy_set_header X-Akamai-ACS-Action $proxy_auth_netstorage_action;
             proxy_set_header X-Akamai-ACS-Auth-Data $proxy_auth_netstorage_data;
             proxy_set_header X-Akamai-ACS-Auth-Sign $proxy_auth_netstorage_sign;
@@ -79,15 +80,14 @@ To use this module, configure your Nginx branch with `--add-module=/path/to/ngx_
 
 **Context:** `http`, `server`, `location`
 
-Enables or disables Akamai NetStorage authentication. When enabled, generates these request headers value to variables:
+Enables or disables Akamai NetStorage authentication. When built with `NGX_HTTP_PROXY_FILTER`, the module writes these proxy request headers directly.
+Otherwise, it generates values for variables that can be used with `proxy_set_header`:
 
 - `X-Akamai-ACS-Action: version=1&action=download` -> $proxy_auth_netstorage_action
 - `X-Akamai-ACS-Auth-Data: <generated_auth_data>` -> $proxy_auth_netstorage_data
 - `X-Akamai-ACS-Auth-Sign: <generated_signature>` -> $proxy_auth_netstorage_sign
 
-Note that it will not overwrite existing request headers. You can use `proxy_set_header` to overwrite them.
-
-
+When `NGX_HTTP_PROXY_FILTER` is enabled, existing matching proxy request headers are overwritten.
 
 ### `proxy_auth_netstorage_account`
 
@@ -134,6 +134,8 @@ proxy_auth_netstorage_bypass $arg_noauth $http_noauth;  # Skip when $arg_noauth 
 ```
 
 # Variables
+
+These variables are only registered when the module is built without `NGX_HTTP_PROXY_FILTER`.
 
 ### `$proxy_auth_netstorage_action`
 
