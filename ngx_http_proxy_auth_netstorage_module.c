@@ -405,7 +405,7 @@ ngx_http_proxy_auth_netstorage_request_filter(ngx_http_request_t *r,
 {
     ngx_http_proxy_auth_netstorage_loc_conf_t  *plcf;
 
-    ngx_str_t   auth_data, sign_value, *uri, new_uri;
+    ngx_str_t   auth_data, sign_value, *uri, *method, new_uri;
     u_char     *p;
 
     if (ctx->headers == NULL) {
@@ -433,7 +433,7 @@ ngx_http_proxy_auth_netstorage_request_filter(ngx_http_request_t *r,
 
     if (ngx_http_proxy_filter_get_method(r, ctx, &method) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "proxy_auth_aws: failed to get method");
+                      "proxy_auth_netstorage: failed to get method");
         return NGX_ERROR;
     }
 
