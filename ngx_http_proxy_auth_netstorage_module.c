@@ -669,14 +669,14 @@ ngx_http_proxy_auth_netstorage_merge_loc_conf(ngx_conf_t *cf,
     ngx_http_proxy_auth_netstorage_loc_conf_t *prev = parent;
     ngx_http_proxy_auth_netstorage_loc_conf_t *conf = child;
 
-    ngx_conf_merge_value(plcf->enabled, prev->enabled, 0);
-    ngx_conf_merge_ptr_value(plcf->bypass, prev->bypass, NULL);
-    ngx_conf_merge_str_value(plcf->account, prev->account, "");
-    ngx_conf_merge_str_value(plcf->key, prev->key, "");
+    ngx_conf_merge_value(conf->enabled, prev->enabled, 0);
+    ngx_conf_merge_ptr_value(conf->bypass, prev->bypass, NULL);
+    ngx_conf_merge_str_value(conf->account, prev->account, "");
+    ngx_conf_merge_str_value(conf->key, prev->key, "");
 #if (NGX_HTTP_PROXY_FILTER)
-    ngx_conf_merge_str_value(plcf->prefix, prev->prefix, "");
+    ngx_conf_merge_str_value(conf->prefix, prev->prefix, "");
 #else
-    ngx_conf_merge_ptr_value(plcf->uri, prev->uri, NULL);
+    ngx_conf_merge_ptr_value(conf->uri, prev->uri, NULL);
 #endif
 
     return NGX_CONF_OK;
