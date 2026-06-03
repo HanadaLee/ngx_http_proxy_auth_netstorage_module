@@ -44,24 +44,23 @@ typedef struct {
 } ngx_http_proxy_auth_netstorage_loc_conf_t;
 
 
-#if !(NGX_HTTP_PROXY_FILTER)
-static ngx_int_t ngx_http_proxy_auth_netstorage_add_variables(ngx_conf_t *cf);
-static ngx_int_t ngx_http_proxy_auth_netstorage_variables(
-    ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_proxy_auth_netstorage_handler(ngx_http_request_t *r);
-#else
+#if (NGX_HTTP_PROXY_FILTER)
 static ngx_int_t ngx_http_proxy_auth_netstorage_request_filter(
     ngx_http_request_t *r, ngx_http_proxy_filter_ctx_t *ctx);
 static ngx_int_t ngx_http_proxy_auth_netstorage_set_header(
     ngx_http_request_t *r, ngx_list_t *headers, ngx_str_t *key,
     ngx_uint_t hash, ngx_str_t *value);
+#else
+static ngx_int_t ngx_http_proxy_auth_netstorage_add_variables(ngx_conf_t *cf);
+static ngx_int_t ngx_http_proxy_auth_netstorage_variables(
+    ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_proxy_auth_netstorage_handler(ngx_http_request_t *r);
 #endif
-
 
 static ngx_int_t ngx_http_proxy_auth_netstorage_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_proxy_auth_netstorage_sign(ngx_http_request_t *r,
-    ngx_str_t *uri, ngx_str_t *auth_data, ngx_str_t *sign_value);
-
+    ngx_str_t *uri, ngx_str_t *account, ngx_str_t *key, ngx_str_t *auth_data,
+    ngx_str_t *sign_value);
 
 static void *ngx_http_proxy_auth_netstorage_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_proxy_auth_netstorage_merge_loc_conf(ngx_conf_t *cf,
@@ -316,10 +315,9 @@ ngx_http_proxy_auth_netstorage_variables(ngx_http_request_t *r,
 
 static ngx_int_t
 ngx_http_proxy_auth_netstorage_sign(ngx_http_request_t *r,
-    ngx_str_t *uri, ngx_str_t *auth_data, ngx_str_t *sign_value)
+    ngx_str_t *uri, ngx_str_t *account, ngx_str_t *key, ngx_str_t *auth_data,
+    ngx_str_t *sign_value)
 {
-    ngx_http_proxy_auth_netstorage_loc_conf_t  *plcf;
-
     ngx_time_t           *tp;
     u_char               *p, *buf;
     u_char                random_bytes[16];
@@ -327,41 +325,12 @@ ngx_http_proxy_auth_netstorage_sign(ngx_http_request_t *r,
     unsigned char         md[EVP_MAX_MD_SIZE];
     ngx_str_t             sign_hmac_bin;
 
-    plcf = ngx_http_get_module_loc_conf(r,
-                                        ngx_http_proxy_auth_netstorage_module);
-
-    if (!plcf->enabled) {
-        return NGX_DECLINED;
-    }
-
-    switch (ngx_http_test_predicates(r, plcf->bypass)) {
-
-    case NGX_ERROR:
-        return NGX_ERROR;
-
-    case NGX_DECLINED:
-        return NGX_DECLINED;
-
-    default: /* NGX_OK */
-        break;
-    }
-
-    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD|NGX_HTTP_OPTIONS))) {
-        return NGX_DECLINED;
-    }
-
-    if (plcf->account.len == 0 || plcf->key.len == 0) {
-        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                      "proxy_auth_netstorage: account or key not configured");
-        return NGX_DECLINED;
-    }
-
     /* X-Akamai-Acs-Auth-Data */
     buf = ngx_pcalloc(r->pool,
                       ngx_http_proxy_auth_netstorage_data_prefix.len
                       + NGX_TIME_T_LEN
                       + ngx_http_proxy_auth_netstorage_data_comma.len * 2
-                      + 32 + plcf->account.len);
+                      + 32 + account->len);
     if (buf == NULL) {
         return NGX_ERROR;
     }
@@ -373,18 +342,18 @@ ngx_http_proxy_auth_netstorage_sign(ngx_http_request_t *r,
                    ngx_http_proxy_auth_netstorage_data_prefix.len);
     p = ngx_sprintf(p, "%T", tp->sec);
     p = ngx_copy(p, ngx_http_proxy_auth_netstorage_data_comma.data,
-                   ngx_http_proxy_auth_netstorage_data_comma.len);
+                 ngx_http_proxy_auth_netstorage_data_comma.len);
 
     if (RAND_bytes(random_bytes, 16) != 1) {
         ngx_ssl_error(NGX_LOG_ERR, r->connection->log, 0,
-                                   "RAND_bytes() failed");
+                      "RAND_bytes() failed");
         return NGX_ERROR;
     }
 
     p = ngx_hex_dump(p, random_bytes, 16);
     p = ngx_copy(p, ngx_http_proxy_auth_netstorage_data_comma.data,
-                   ngx_http_proxy_auth_netstorage_data_comma.len);
-    p = ngx_copy(p, plcf->account.data, plcf->account.len);
+                 ngx_http_proxy_auth_netstorage_data_comma.len);
+    p = ngx_copy(p, account->data, account->len);
 
     auth_data->data = buf;
     auth_data->len = p - buf;
@@ -405,14 +374,14 @@ ngx_http_proxy_auth_netstorage_sign(ngx_http_request_t *r,
                     &ngx_http_proxy_auth_netstorage_action_value);
 
     /* HMAC */
-    HMAC(EVP_sha256(), plcf->key.data, plcf->key.len, buf, p - buf, md,
-         &md_len);
+    HMAC(EVP_sha256(), key->data, key->len, buf, p - buf, md, &md_len);
 
     sign_hmac_bin.len = md_len;
     sign_hmac_bin.data = ngx_palloc(r->pool, sign_hmac_bin.len);
     if (sign_hmac_bin.data == NULL) {
         return NGX_ERROR;
     }
+
     ngx_memcpy(sign_hmac_bin.data, &md, md_len);
 
     /* X-Akamai-Acs-Auth-Sign */
@@ -436,7 +405,6 @@ ngx_http_proxy_auth_netstorage_request_filter(ngx_http_request_t *r,
 {
     ngx_http_proxy_auth_netstorage_loc_conf_t  *plcf;
 
-    ngx_int_t   rc;
     ngx_str_t   auth_data, sign_value, *uri, new_uri;
     u_char     *p;
 
@@ -447,15 +415,44 @@ ngx_http_proxy_auth_netstorage_request_filter(ngx_http_request_t *r,
     plcf = ngx_http_get_module_loc_conf(r,
                                         ngx_http_proxy_auth_netstorage_module);
 
-    if (plcf->prefix.len == 0) {
-        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                      "proxy_auth_netstorage: prefix not configured");
+    if (!plcf->enabled) {
         return NGX_DECLINED;
     }
 
-    rc = ngx_http_proxy_filter_get_uri(r, ctx, &uri);
-    if (rc != NGX_OK) {
-        return rc;
+    switch (ngx_http_test_predicates(r, plcf->bypass)) {
+
+    case NGX_ERROR:
+        return NGX_ERROR;
+
+    case NGX_DECLINED:
+        return NGX_DECLINED;
+
+    default: /* NGX_OK */
+        break;
+    }
+
+    if (ngx_http_proxy_filter_get_method(r, ctx, &method) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "proxy_auth_aws: failed to get method");
+        return NGX_ERROR;
+    }
+
+    if ((method->len != 3 || ngx_strncmp(method->data, "GET", 3) != 0)
+        && (method->len != 4 || ngx_strncmp(method->data, "HEAD", 4) != 0)
+        && (method->len != 7 || ngx_strncmp(method->data, "OPTIONS", 7) != 0))
+    {
+        return NGX_DECLINED;
+    }
+
+    if (plcf->account.len == 0 || plcf->key.len == 0 || plcf->prefix.len == 0) {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                      "proxy_auth_netstorage: account, key or prefix "
+                      "not configured");
+        return NGX_DECLINED;
+    }
+
+    if (ngx_http_proxy_filter_get_uri(r, ctx, &uri) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     new_uri.len = 1 + plcf->prefix.len + uri->len;
@@ -469,37 +466,42 @@ ngx_http_proxy_auth_netstorage_request_filter(ngx_http_request_t *r,
     p = ngx_cpymem(p, plcf->prefix.data, plcf->prefix.len);
     p = ngx_cpymem(p, uri->data, uri->len);
 
-    rc = ngx_http_proxy_filter_set_uri(r, ctx, &new_uri);
-    if (rc != NGX_OK) {
-        return rc;
+    if (ngx_http_proxy_filter_set_uri(r, ctx, &new_uri) != NGX_OK) {
+        return NGX_ERROR;
     }
 
     uri = &new_uri;
 
-    rc = ngx_http_proxy_auth_netstorage_sign(r, uri, &auth_data, &sign_value);
-    if (rc != NGX_OK) {
-        return rc;
+    if (ngx_http_proxy_auth_netstorage_sign(r, uri, &plcf->account,
+                                            &plcf->key, &auth_data,
+                                            &sign_value)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
-    rc = ngx_http_proxy_auth_netstorage_set_header(r, ctx->headers,
+    if (ngx_http_proxy_auth_netstorage_set_header(r, ctx->headers,
             &ngx_http_proxy_auth_netstorage_action_name,
             ngx_http_proxy_auth_netstorage_action_name_hash,
-            &ngx_http_proxy_auth_netstorage_action_value);
-    if (rc != NGX_OK) {
+            &ngx_http_proxy_auth_netstorage_action_value)
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
-    rc = ngx_http_proxy_auth_netstorage_set_header(r, ctx->headers,
+    if (ngx_http_proxy_auth_netstorage_set_header(r, ctx->headers,
             &ngx_http_proxy_auth_netstorage_data_name,
-            ngx_http_proxy_auth_netstorage_data_name_hash, &auth_data);
-    if (rc != NGX_OK) {
+            ngx_http_proxy_auth_netstorage_data_name_hash, &auth_data)
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
-    rc = ngx_http_proxy_auth_netstorage_set_header(r, ctx->headers,
+    if (ngx_http_proxy_auth_netstorage_set_header(r, ctx->headers,
             &ngx_http_proxy_auth_netstorage_sign_name,
-            ngx_http_proxy_auth_netstorage_sign_name_hash, &sign_value);
-    if (rc != NGX_OK) {
+            ngx_http_proxy_auth_netstorage_sign_name_hash, &sign_value)
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
@@ -590,7 +592,6 @@ ngx_http_proxy_auth_netstorage_set_header(ngx_http_request_t *r,
 static ngx_int_t
 ngx_http_proxy_auth_netstorage_handler(ngx_http_request_t *r)
 {
-    ngx_int_t                                   rc;
     ngx_str_t                                   auth_data, sign_value, uri;
     ngx_http_proxy_auth_netstorage_ctx_t       *ctx;
     ngx_http_proxy_auth_netstorage_loc_conf_t  *plcf;
@@ -603,7 +604,35 @@ ngx_http_proxy_auth_netstorage_handler(ngx_http_request_t *r)
     plcf = ngx_http_get_module_loc_conf(r,
                                         ngx_http_proxy_auth_netstorage_module);
 
+    if (!plcf->enabled) {
+        return NGX_DECLINED;
+    }
+
+    switch (ngx_http_test_predicates(r, plcf->bypass)) {
+
+    case NGX_ERROR:
+        return NGX_ERROR;
+
+    case NGX_DECLINED:
+        return NGX_DECLINED;
+
+    default: /* NGX_OK */
+        break;
+    }
+
+    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD|NGX_HTTP_OPTIONS))) {
+        return NGX_DECLINED;
+    }
+
+    if (plcf->account.len == 0 || plcf->key.len == 0) {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                      "proxy_auth_netstorage: account or key not configured");
+        return NGX_DECLINED;
+    }
+
     if (plcf->uri == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "proxy_auth_netstorage: uri not configured");
         return NGX_DECLINED;
     }
 
@@ -613,14 +642,18 @@ ngx_http_proxy_auth_netstorage_handler(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    rc = ngx_http_proxy_auth_netstorage_sign(r, &uri, &auth_data, &sign_value);
-
-    if (rc == NGX_DECLINED) {
-        return NGX_DECLINED;
+    if (uri.len == 0 || uri.data[0] != '/') {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "proxy_auth_netstorage: invalid uri");
+        return NGX_ERROR;
     }
 
-    if (rc != NGX_OK) {
-        return rc;
+    if (ngx_http_proxy_auth_netstorage_sign(r, &uri,
+                                            &plcf->account, &plcf->key,
+                                            &auth_data, &sign_value)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
     }
 
     ctx = ngx_pcalloc(r->pool,
