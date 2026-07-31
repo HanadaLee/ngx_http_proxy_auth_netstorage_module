@@ -78,7 +78,7 @@ To use this module, configure your Nginx branch with `--add-module=/path/to/ngx_
 
 **Default:** `off`
 
-**Context:** `http`, `server`, `location`
+**Context:** `http`, `server`, `location`, `when`
 
 Enables or disables Akamai NetStorage authentication. When built with `NGX_HTTP_PROXY_FILTER`, the module writes these proxy request headers directly.
 Otherwise, it generates values for variables that can be used with `proxy_set_header`:
@@ -95,7 +95,7 @@ When `NGX_HTTP_PROXY_FILTER` is enabled, existing matching proxy request headers
 
 **Default:** `-`
 
-**Context:** `http`, `server`, `location`
+**Context:** `http`, `server`, `location`, `when`
 
 Sets the Akamai NetStorage upload account ID used in authentication data.
 
@@ -105,9 +105,20 @@ Sets the Akamai NetStorage upload account ID used in authentication data.
 
 **Default:** `-`
 
-**Context:** `http`, `server`, `location`
+**Context:** `http`, `server`, `location`, `when`
 
 Sets the HTTP API key from Akamai NetStorage.
+
+### `proxy_auth_netstorage_prefix`
+
+**Syntax:** `proxy_auth_netstorage_prefix prefix;`
+
+**Default:** `-`
+
+**Context:** `http`, `server`, `location`, `when`
+
+Sets the URI prefix used for signing when the module is built with
+`NGX_HTTP_PROXY_FILTER`.
 
 ### `proxy_auth_netstorage_uri`
 
@@ -115,9 +126,11 @@ Sets the HTTP API key from Akamai NetStorage.
 
 **Default:** `-`
 
-**Context:** `http`, `server`, `location`
+**Context:** `http`, `server`, `location`, `when`
 
-Specifies the uri for signing. It must be explicitly specified and must be exactly the same as the actual upstream request uri. The value can contain variables.
+Specifies the URI for signing when the module is built without
+`NGX_HTTP_PROXY_FILTER`. It must match the actual upstream request URI. The
+value can contain variables.
 
 ### `proxy_auth_netstorage_bypass`
 
