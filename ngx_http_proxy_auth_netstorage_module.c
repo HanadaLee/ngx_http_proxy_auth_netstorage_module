@@ -711,7 +711,7 @@ ngx_http_proxy_auth_netstorage_handler(ngx_http_request_t *r)
     switch (ngx_http_test_predicates(r, plcf->bypass)) {
 
     case NGX_ERROR:
-        return NGX_ERROR;
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
 
     case NGX_DECLINED:
         return NGX_DECLINED;
@@ -755,27 +755,27 @@ ngx_http_proxy_auth_netstorage_handler(ngx_http_request_t *r)
     if (ngx_http_complex_value(r, uri_cv, &uri) != NGX_OK) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                       "proxy_auth_netstorage: failed to get uri");
-        return NGX_ERROR;
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     if (uri.len == 0 || uri.data[0] != '/') {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                       "proxy_auth_netstorage: invalid uri");
-        return NGX_ERROR;
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     if (ngx_http_proxy_auth_netstorage_sign(r, &uri, account, key,
                                             &auth_data, &sign_value)
         != NGX_OK)
     {
-        return NGX_ERROR;
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     ctx = ngx_pcalloc(r->pool,
-        sizeof(ngx_http_proxy_auth_netstorage_ctx_t));
+                      sizeof(ngx_http_proxy_auth_netstorage_ctx_t));
 
     if (ctx == NULL) {
-        return NGX_ERROR;
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     ctx->data = auth_data;

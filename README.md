@@ -140,7 +140,10 @@ value can contain variables.
 
 **Context:** `http`, `server`, `location`
 
-Defines conditions under which the requests will skip authentication generation. If at least one value of the string parameters is not empty and is not equal to “0” then authentication request headers generation will be skipped.
+Defines conditions under which requests skip authentication generation. If at
+least one string parameter is not empty and is not equal to `0`, authentication
+headers are not generated.
+
 Example:
 ```nginx
 proxy_auth_netstorage_bypass $arg_noauth $http_noauth;  # Skip when $arg_noauth or $http_noauth not empty
