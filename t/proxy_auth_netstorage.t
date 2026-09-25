@@ -20,7 +20,7 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite ngx_condition_module
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite ngx_expr_module
 	ngx_http_proxy_auth_netstorage_module/);
 
 plan(skip_all => 'proxy filter build required')
@@ -53,7 +53,7 @@ http {
         listen       127.0.0.1:8080;
         server_name  localhost;
 
-        condition special str_eq $arg_mode special;
+        expr special str_eq $arg_mode special;
 
         proxy_auth_netstorage on;
         proxy_auth_netstorage_account account;
