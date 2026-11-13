@@ -20,7 +20,7 @@ use Test::Nginx qw/ :DEFAULT http_content /;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $t = Test::Nginx->new()->has(qw/http proxy rewrite ngx_expr_module
+my $t = Test::Nginx->new()->has(qw/http proxy rewrite
 	ngx_http_proxy_auth_netstorage_module/);
 
 plan(skip_all => 'proxy filter build required')
@@ -28,7 +28,8 @@ plan(skip_all => 'proxy filter build required')
 
 $t->plan(10);
 
-$t->write_file_expand('nginx.conf', <<'EOF');
+my $expr = $t->has_module('ngx_expr_module');
+my $config = <<'EOF';
 
 %%TEST_GLOBALS%%
 
@@ -134,6 +135,11 @@ http {
 
 EOF
 
+unless ($expr) {
+	$config =~ s/^        expr [^;]+;\n//mg;
+	$config =~ s/^            when \w+ \{\n.*?^            \}\n//msg;
+}
+$t->write_file_expand('nginx.conf', $config);
 $t->run();
 
 ###############################################################################
@@ -147,15 +153,18 @@ is(auth_body('/bypass?skip=1'),
 	'/bypass?skip=1|stale-action|stale-data|stale-sign',
 	'bypass preserves URI and existing headers');
 
-signature_ok(auth_body('/conditional?mode=special'),
-	'/selected-cp/conditional?mode=special', 'selected', 'selected-key',
-	'matching condition selects account, key, and prefix');
-signature_ok(auth_body('/conditional?mode=other'),
-	'/fallback-cp/conditional?mode=other', 'fallback', 'fallback-key',
-	'condition miss selects unconditional credentials');
-signature_ok(auth_body('/order?mode=special'),
-	'/first-cp/order?mode=special', 'first', 'first-key',
-	'first unconditional credentials win over a later condition');
+SKIP: {
+	skip 'requires ngx_expr_module', 3 unless $expr;
+	signature_ok(auth_body('/conditional?mode=special'),
+		'/selected-cp/conditional?mode=special', 'selected', 'selected-key',
+		'matching condition selects account, key, and prefix');
+	signature_ok(auth_body('/conditional?mode=other'),
+		'/fallback-cp/conditional?mode=other', 'fallback', 'fallback-key',
+		'condition miss selects unconditional credentials');
+	signature_ok(auth_body('/order?mode=special'),
+		'/first-cp/order?mode=special', 'first', 'first-key',
+		'first unconditional credentials win over a later condition');
+}
 signature_ok(auth_body('/inherit/child'), '/inherited-cp/inherit/child',
 	'inherited', 'inherited-key', 'credentials inherit into a nested location');
 
