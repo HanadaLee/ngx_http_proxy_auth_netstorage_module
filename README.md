@@ -68,6 +68,8 @@ http {
 ```
 
 # Installation
+
+This module must be built statically with `--add-module`.
 To use this module, configure your Nginx branch with `--add-module=/path/to/ngx_http_proxy_auth_netstorage_module`.
 
 # Directives
